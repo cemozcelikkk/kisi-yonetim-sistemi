@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Kişi Yönetimi",
+    "slug": "kisi-yonetim-sistemi",
+    "scheme": "kisiyonetim",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#F7F5F0",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.kisiyonetim.app"
+    },
+    "android": {
+      "package": "com.kisiyonetim.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#291B30",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
+    ]
+  }
+}
