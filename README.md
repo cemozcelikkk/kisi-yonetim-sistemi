@@ -207,7 +207,20 @@ Android emülatörü kendi içinde ayrı bir sanal makinedir; emülatörün içi
 
 ---
 
-## 4. APK oluşturma
+## 4. APK
+
+### Hazır APK (test paketi)
+- **İndirme / kurulum sayfası:** https://expo.dev/accounts/cemozs-team/projects/kisi-yonetim-sistemi/builds/7a367953-1758-42af-b58d-7e8a37ed7057
+  (Sayfayı telefonda açıp **Install** seçin. Android "bilinmeyen kaynaklardan yükleme" izni isteyebilir.)
+- Paket adı: `com.kisiyonetim.app` · Profil: `preview` (APK, dahili dağıtım)
+
+Bu APK backend'e **`http://100.64.164.79:5080`** adresinden bağlanır. Bu adres geliştiricinin bilgisayarının [Tailscale](https://tailscale.com) adresidir ve ağ değişse de aynı kalır. APK'nin çalışması için:
+1. Bilgisayarda backend çalışmalı: `cd backend_api && dotnet run`
+2. Bilgisayarda ve telefonda Tailscale açık olmalı, aynı hesapla giriş yapılmış olmalı.
+
+Başka bir bilgisayarda/ağda kullanmak için `eas.json` → `EXPO_PUBLIC_API_URL` değerini o bilgisayarın adresiyle değiştirip APK'yi yeniden derleyin (aşağıda).
+
+### APK oluşturma
 
 Android 9+ varsayılan olarak şifresiz `http://` trafiğini engeller. Yerel backend'e bağlanabilmek için `app.json` içinde `expo-build-properties` eklentisiyle `usesCleartextTraffic: true` ayarlanmıştır.
 
