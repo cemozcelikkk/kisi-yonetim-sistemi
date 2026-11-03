@@ -219,8 +219,12 @@ Telefona kurmak için: dosyayı telefona kopyalayıp açın (Android "bilinmeyen
 
 > API adresi derleme anında APK'ye gömülür. Ağ/IP değişirse APK yeniden derlenmelidir.
 
-### Hazır APK hakkında
-Geliştiricinin APK'si backend'e **`http://100.64.164.79:5080`** adresinden bağlanır. Bu adres geliştiricinin bilgisayarının [Tailscale](https://tailscale.com) adresidir ve ağ değişse de aynı kalır. APK'nin çalışması için:
+### Hazır APK
+- **İndir:** https://github.com/cemozcelikkk/kisi-yonetim-sistemi/releases/latest/download/kisi-yonetim.apk
+  (Tüm sürümler: [Releases](https://github.com/cemozcelikkk/kisi-yonetim-sistemi/releases))
+- Paket adı: `com.kisiyonetim.kisi_yonetim`
+
+Bu APK backend'e **`http://100.64.164.79:5080`** adresinden bağlanır. Bu adres geliştiricinin bilgisayarının [Tailscale](https://tailscale.com) adresidir ve ağ değişse de aynı kalır. APK'nin çalışması için:
 1. Bilgisayarda backend çalışmalı: `cd backend_api && dotnet run`
 2. Bilgisayarda ve telefonda Tailscale açık olmalı, aynı hesapla giriş yapılmış olmalı.
 
