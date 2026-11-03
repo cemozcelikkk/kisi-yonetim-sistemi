@@ -1,10 +1,22 @@
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-// Backend adresi .env dosyasındaki EXPO_PUBLIC_API_URL değişkeninden okunur.
-// Tanımlı değilse platforma göre varsayılan kullanılır:
-// - Android emülatörü bilgisayarın localhost'una 10.0.2.2 üzerinden ulaşır.
-// - iOS simülatörü ve web, bilgisayarla aynı makinede olduğu için localhost kullanır.
-// Fiziksel telefonda bilgisayarın yerel IP adresi .env'ye yazılmalıdır (bkz. README).
-const defaultUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5080' : 'http://localhost:5080';
+// Backend adresi şu sırayla belirlenir:
+// 1. .env / eas.json içindeki EXPO_PUBLIC_API_URL (APK derlemesi bunu kullanır).
+// 2. Expo Go ile çalışırken Metro'nun bağlı olduğu bilgisayar IP'si (ör. 192.168.1.11:8081 → :5080).
+//    Telefon da emülatör de Metro'ya bu IP ile bağlandığı için ağ değişse bile ayar gerekmez.
+// 3. Platform varsayılanı: Android emülatörü bilgisayara 10.0.2.2 ile, iOS simülatörü ve web localhost ile ulaşır.
+const BACKEND_PORT = 5080;
 
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || defaultUrl;
+const fallbackUrl =
+  Platform.OS === 'android' ? `http://10.0.2.2:${BACKEND_PORT}` : `http://localhost:${BACKEND_PORT}`;
+
+function getDevServerUrl(): string | undefined {
+  // Web'de sayfa zaten bilgisayarda açıldığı için localhost yeterli
+  if (Platform.OS === 'web') return undefined;
+
+  const host = Constants.expoConfig?.hostUri?.split(':')[0];
+  return host ? `http://${host}:${BACKEND_PORT}` : undefined;
+}
+
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || getDevServerUrl() || fallbackUrl;

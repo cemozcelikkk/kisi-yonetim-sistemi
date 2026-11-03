@@ -180,9 +180,8 @@ const styles = StyleSheet.create({
   },
   // Fotoğraf alanın alt kenarına taşar; zemin renginde halka onu alandan ayırır
   photoRing: {
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
     marginTop: -84,
-    marginLeft: spacing.lg,
     marginBottom: spacing.xl,
     borderRadius: 999,
     borderWidth: 5,
@@ -196,10 +195,12 @@ const styles = StyleSheet.create({
     fontSize: 38,
     lineHeight: 44,
     letterSpacing: -0.8,
+    textAlign: 'center',
   },
   departmentRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: spacing.sm,
     marginTop: spacing.sm,
   },

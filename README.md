@@ -174,33 +174,33 @@ npx expo-doctor       # Expo yapılandırma kontrolü
 ### API adresinin yapılandırılması
 Adres `src/constants/config.ts` dosyasında belirlenir:
 
-| Ortam | Kullanılan adres | Yapılacak işlem |
+| Öncelik | Kaynak | Ne zaman |
 | --- | --- | --- |
-| Android emülatörü | `http://10.0.2.2:5080` | Hiçbir şey (varsayılan) |
-| iOS simülatörü / web | `http://localhost:5080` | Hiçbir şey (varsayılan) |
-| Fiziksel telefon | `http://<bilgisayar-IP>:5080` | `.env` dosyası oluşturun (aşağıda) |
+| 1 | `.env` / `eas.json` → `EXPO_PUBLIC_API_URL` | APK derlemesi veya adresi elle sabitlemek istendiğinde |
+| 2 | Expo'nun bağlı olduğu bilgisayar IP'si (Metro adresi, port 5080 ile) | Expo Go ile çalışırken (emülatör **ve** fiziksel telefon) |
+| 3 | `http://10.0.2.2:5080` (Android) / `http://localhost:5080` (iOS, web) | Diğer durumlar |
+
+Expo Go ile çalışırken `.env` boş bırakılır: telefon da emülatör de Metro'ya bilgisayarın IP'siyle bağlandığı için backend'e de aynı IP ile ulaşılır ve ağ değişse bile ayar gerekmez.
 
 ### Android emülatör bağlantısı
-Android emülatörü kendi içinde ayrı bir sanal makinedir; emülatörün içindeki `localhost` emülatörün kendisidir. Bilgisayarınızın `localhost`'una ulaşmak için özel adres **`10.0.2.2`** kullanılır. Uygulama Android'de bu adresi otomatik kullanır.
-
 1. Backend'i başlatın: `cd backend_api && dotnet run`
 2. Android Studio → Device Manager → bir emülatör başlatın.
-3. Emülatörün tarayıcısında `http://10.0.2.2:5080/api/persons` açarak bağlantıyı test edin.
-4. `cd mobile_app && npx expo start` → `a` tuşu.
+3. `cd mobile_app && npx expo start -c` → `a` tuşu.
+
+> **Android 17 (API 37):** Uygulamaların yerel ağa erişmesi için "Yerel ağ" izni gerekir. Expo Go'da bu izin kapalı gelir ve uygulama "Sunucuya ulaşılamadı" der. İzni vermek için:
+> ```powershell
+> adb shell pm grant host.exp.exponent android.permission.ACCESS_LOCAL_NETWORK
+> ```
+> (Fiziksel telefonda: Ayarlar → Uygulamalar → Expo Go → İzinler → Yerel ağ → İzin ver.)
 
 ### Fiziksel telefon bağlantısı
 1. Telefon ve bilgisayar **aynı Wi-Fi ağında** olmalıdır.
-2. Bilgisayarın yerel IP adresini bulun: Windows'ta `ipconfig` → "IPv4 Address" (ör. `192.168.1.20`). macOS: `ipconfig getifaddr en0`.
-3. `mobile_app/.env` dosyası oluşturun (`.env.example`'ı kopyalayın):
-   ```
-   EXPO_PUBLIC_API_URL=http://192.168.1.20:5080
-   ```
-4. Windows Güvenlik Duvarı 5080 portunu engelleyebilir. Yönetici PowerShell'de:
+2. `npx expo start -c` → QR kodu Expo Go ile okutun. Backend adresi otomatik belirlenir.
+3. Windows Güvenlik Duvarı 5080 portunu engelleyebilir. Yönetici PowerShell'de:
    ```powershell
    netsh advfirewall firewall add rule name="PersonApi 5080" dir=in action=allow protocol=TCP localport=5080
    ```
-5. Telefonun tarayıcısında `http://192.168.1.20:5080/api/persons` açılıyorsa bağlantı hazırdır.
-6. Önbelleği temizleyerek başlatın: `npx expo start -c` → QR kodu Expo Go ile okutun.
+4. Sorun olursa telefonun tarayıcısında `http://<bilgisayar-IP>:5080/api/persons` adresini açarak test edin (IP: `ipconfig` → "IPv4 Address").
 
 > `.env` değiştiğinde Expo sunucusunu `-c` ile yeniden başlatmak gerekir; `EXPO_PUBLIC_` değişkenleri derleme anında koda gömülür.
 > Kampüs/okul ağları cihazlar arası trafiği engelleyebilir. Bu durumda telefonun mobil erişim noktasına (hotspot) bilgisayarı bağlayın ve IP'yi yeniden kontrol edin.
@@ -274,8 +274,8 @@ git push -u origin main
 
 | Belirti | Çözüm |
 | --- | --- |
-| Uygulamada "Bağlantı kurulamadı" | Backend çalışıyor mu? Hata mesajındaki adres doğru mu? Telefonda `.env` IP'si güncel mi? |
-| Emülatör bağlanamıyor | `10.0.2.2` kullanıldığından emin olun; `.env` dosyasında `localhost` yazmayın. |
+| Uygulamada "Bağlantı kurulamadı" | Backend çalışıyor mu? Hata mesajındaki adres doğru mu? `.env` içinde eski bir `EXPO_PUBLIC_API_URL` satırı açık kalmış mı? |
+| Emülatör bağlanamıyor | `.env` dosyasında `localhost` yazmayın; Android 17'de Expo Go'ya "Yerel ağ" izni verin (bkz. Android emülatör bağlantısı). |
 | Telefon bağlanamıyor | Aynı Wi-Fi, güvenlik duvarı kuralı, `npx expo start -c` |
 | `dotnet` bulunamadı | .NET 10 SDK kurun, terminali yeniden açın. |
 | Port 5080 kullanımda | `launchSettings.json` içinde portu değiştirin, mobilde de adresi güncelleyin. |

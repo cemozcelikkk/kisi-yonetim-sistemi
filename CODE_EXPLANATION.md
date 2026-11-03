@@ -43,7 +43,7 @@ Bilinçli olarak **basit** tutuldu: Redux yok, repository/service katmanı yok, 
 ### Backend (`backend_api/`)
 
 **`Program.cs`** — Uygulamanın giriş noktası.
-- `AddDbContext<AppDbContext>(o => o.UseSqlite(...))`: EF Core'u SQLite ile kaydeder (Dependency Injection).
+- `AddDbContext<AppDbContext>(o => o.UseSqlite(...))`: Entity freamwork Core'u SQLite ile kaydeder (Dependency Injection). 
 - `AddControllers()`: Controller sınıflarını etkinleştirir.
 - `AddProblemDetails()` + `UseExceptionHandler()`: Beklenmeyen hatalarda uygulama çökmez, `500` ve standart JSON döner.
 - `AddSwaggerGen()` + `UseSwagger()` + `UseSwaggerUI()`: `/swagger` adresinde test arayüzü.
