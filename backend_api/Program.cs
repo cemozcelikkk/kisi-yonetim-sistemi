@@ -14,7 +14,7 @@ builder.Services.AddProblemDetails(); // Hataları standart JSON (RFC 7807) olar
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Expo web önizlemesi gibi tarayıcı istemcilerinin API'ye erişebilmesi için CORS.
+// Flutter web gibi tarayıcıda çalışan istemcilerin API'ye erişebilmesi için CORS.
 // (Android/iOS uygulamaları CORS kuralına tabi değildir.)
 builder.Services.AddCors(options =>
 {

@@ -9,32 +9,33 @@ Bu doküman canlı kod savunmasına hazırlık içindir: mimariyi, her önemli d
 Proje **istemci–sunucu (client–server)** mimarisindedir. İki bağımsız uygulama HTTP üzerinden JSON alışverişi yapar.
 
 ```
-[Ekran (React bileşeni)]
-      │  kullanıcı bir şey yapar (açılır, butona basar)
+[Ekran (Flutter widget'ı)]
+      │  kullanıcı bir şey yapar (ekran açılır, butona basar)
       ▼
-[personService.ts]  ── axios ile HTTP isteği ──▶  [PersonsController.cs]
-                                                         │ EF Core (async)
-                                                         ▼
-                                                  [AppDbContext] ──▶ persons.db (SQLite)
-      ▲                                                  │
-      └──────────────── JSON cevap ◀─────────────────────┘
-[setState → ekran yeniden çizilir]
+[person_service.dart]  ── http paketiyle istek ──▶  [PersonsController.cs]
+                                                          │ EF Core (async)
+                                                          ▼
+                                                   [AppDbContext] ──▶ persons.db (SQLite)
+      ▲                                                   │
+      └──────────────── JSON cevap ◀──────────────────────┘
+[Person.fromJson → FutureBuilder ekranı yeniden çizer]
 ```
 
 **Katmanlar ve sorumluluklar**
 
 | Katman | Dosya(lar) | Sorumluluk |
 | --- | --- | --- |
-| Model | `Models/Person.cs` | Verinin şekli ve doğrulama kuralları |
+| Model (backend) | `Models/Person.cs` | Verinin şekli ve doğrulama kuralları |
 | Veri erişimi | `Data/AppDbContext.cs` | Veritabanı tablosu + örnek veriler |
 | API | `Controllers/PersonsController.cs` | HTTP isteğini karşılar, doğru durum kodunu döner |
 | Başlangıç | `Program.cs` | Servisleri kaydeder, veritabanını oluşturur, Swagger'ı açar |
-| Mobil servis | `src/services/personService.ts` | Tüm HTTP çağrıları tek yerde |
-| Mobil ekranlar | `src/app/*.tsx` | Kullanıcı arayüzü + ekran durumu (state) |
-| Mobil bileşenler | `src/components/*.tsx` | Tekrar kullanılan görsel parçalar |
-| Tasarım | `src/constants/theme.ts` | Renk, boşluk, yazı tipi token'ları |
+| Model (mobil) | `lib/models/person.dart` | `Person` sınıfı, JSON ↔ nesne dönüşümü |
+| Mobil servis | `lib/services/person_service.dart` | Tüm HTTP çağrıları tek yerde |
+| Mobil ekranlar | `lib/screens/*.dart` | Kullanıcı arayüzü + ekran durumu (state) |
+| Mobil widget'lar | `lib/widgets/*.dart` | Tekrar kullanılan görsel parçalar |
+| Tasarım | `lib/theme/app_theme.dart` | Renkler, yazı stilleri, Material teması |
 
-Bilinçli olarak **basit** tutuldu: Redux yok, repository/service katmanı yok, DTO yok. Her dosyanın tek bir görevi var.
+Bilinçli olarak **basit** tutuldu: Provider/Bloc/Riverpod yok, repository katmanı yok, DTO yok. Her dosyanın tek bir görevi var.
 
 ---
 
@@ -43,15 +44,15 @@ Bilinçli olarak **basit** tutuldu: Redux yok, repository/service katmanı yok, 
 ### Backend (`backend_api/`)
 
 **`Program.cs`** — Uygulamanın giriş noktası.
-- `AddDbContext<AppDbContext>(o => o.UseSqlite(...))`: Entity freamwork Core'u SQLite ile kaydeder (Dependency Injection). 
+- `AddDbContext<AppDbContext>(o => o.UseSqlite(...))`: Entity Framework Core'u SQLite ile kaydeder (Dependency Injection).
 - `AddControllers()`: Controller sınıflarını etkinleştirir.
 - `AddProblemDetails()` + `UseExceptionHandler()`: Beklenmeyen hatalarda uygulama çökmez, `500` ve standart JSON döner.
 - `AddSwaggerGen()` + `UseSwagger()` + `UseSwaggerUI()`: `/swagger` adresinde test arayüzü.
-- `AddCors(...)` + `UseCors()`: Tarayıcıdan (Expo web) gelen isteklere izin verir. Telefon uygulamaları CORS'a tabi değildir.
+- `AddCors(...)` + `UseCors()`: Tarayıcıdan (ör. Flutter web) gelen isteklere izin verir. Telefon uygulamaları CORS'a tabi değildir.
 - `EnsureCreatedAsync()`: Veritabanı dosyası yoksa tabloyla birlikte oluşturur ve `HasData` ile verilen örnek kişileri ekler.
 
 **`Models/Person.cs`** — Kişi sınıfı. Hem veritabanı tablosu hem JSON gövdesi olarak kullanılır.
-- `[Required]`, `[StringLength]`, `[EmailAddress]`, `[Url]`, `[RegularExpression]`: Data Annotation doğrulama kuralları. `[ApiController]` bunları otomatik çalıştırır, kural bozulursa `400` döner.
+- `[Required]`, `[StringLength]`, `[Url]`, `[RegularExpression]`: Data Annotation doğrulama kuralları. `[ApiController]` bunları otomatik çalıştırır, kural bozulursa `400` döner.
 - `DateOnly? BirthDate`: Sadece tarih (saat yok). JSON'da `"1994-04-12"` olarak görünür. Nullable yapıldı ki gövdede hiç gönderilmezse `[Required]` hatası versin (yoksa sessizce `0001-01-01` olurdu).
 
 **`Data/AppDbContext.cs`** — `DbContext`'ten türer. `DbSet<Person> Persons` → `Persons` tablosu. `OnModelCreating` içinde `HasData(...)` ile 10 örnek kişi.
@@ -62,33 +63,36 @@ Bilinçli olarak **basit** tutuldu: Redux yok, repository/service katmanı yok, 
 
 **`Properties/launchSettings.json`** — `applicationUrl: http://0.0.0.0:5080`. `0.0.0.0` = tüm ağ arayüzlerinde dinle (telefon erişebilsin diye).
 
-### Mobil (`mobile_app/src/`)
+### Mobil (`mobile_app/lib/`)
 
 | Dosya | Görevi |
 | --- | --- |
-| `app/_layout.tsx` | Kök Stack navigasyon, yazı tiplerini yükler, başlık stilleri |
-| `app/index.tsx` | Kişi listesi (GET all), FAB, yükleniyor/hata/boş durumları |
-| `app/person/[id].tsx` | Detay (GET by id), e-posta/telefon aksiyonları, Düzenle/Sil (DELETE) |
-| `app/form.tsx` | Ekleme (POST) ve düzenleme (PUT) için ortak form |
-| `services/personService.ts` | axios örneği + `getPersons`, `getPerson`, `createPerson`, `updatePerson`, `deletePerson`, `getErrorMessage` |
-| `types/person.ts` | `Person` arayüzü ve `PersonInput` (= id'siz Person) |
-| `constants/config.ts` | `API_BASE_URL` (env değişkeni veya platforma göre varsayılan) |
-| `constants/theme.ts` | Renkler, boşluklar, köşe yarıçapları, yazı stilleri |
-| `components/PersonRow.tsx` | Listede bir satır (fotoğraf + ad + departman) |
-| `components/Avatar.tsx` | Dairesel fotoğraf; yoksa baş harfler |
-| `components/InfoRow.tsx` | Detayda etiket + değer satırı (tıklanabilir olabilir) |
-| `components/Button.tsx` | primary / secondary / danger buton |
-| `components/FormField.tsx` | Etiketli TextInput, odak ve hata görünümü |
-| `components/ConfirmDialog.tsx` | Silme onay penceresi (Modal) |
-| `components/StateView.tsx` | Yükleniyor / hata / boş durum görünümü |
-| `utils/validation.ts` | Form doğrulama (backend kurallarının aynısı) |
-| `utils/format.ts` | Tarih (`12 Nisan 1994`), telefon biçimleme, baş harfler |
-| `utils/notify.ts` | Bilgi mesajı (Alert; web'de window.alert) |
+| `main.dart` | `main()` → `runApp`, `MaterialApp`, tema ve Türkçe dil ayarı, ilk ekran |
+| `config.dart` | `apiBaseUrl` (`--dart-define=API_URL=...` ile değiştirilebilir, varsayılan `10.0.2.2:5080`) |
+| `models/person.dart` | `Person` sınıfı, `fromJson` (JSON → nesne) ve `toJson` (nesne → JSON) |
+| `services/person_service.dart` | `getPersons`, `getPerson`, `createPerson`, `updatePerson`, `deletePerson` + hata mesajı üretimi (`ApiException`) |
+| `screens/person_list_screen.dart` | EKRAN 1: liste (GET all), başlık, FAB, aşağı çekip yenileme |
+| `screens/person_detail_screen.dart` | EKRAN 2: detay (GET by id), e-posta/telefon aksiyonları, Düzenle, Sil (DELETE) + onay diyaloğu |
+| `screens/person_form_screen.dart` | EKRAN 3: ekleme (POST) ve düzenleme (PUT) için ortak form |
+| `theme/app_theme.dart` | `AppColors` (renkler), `AppText` (yazı stilleri), `buildAppTheme()` |
+| `widgets/person_row.dart` | Listede bir satır: fotoğraf + kalın ad + departman |
+| `widgets/person_avatar.dart` | Dairesel fotoğraf (`CircleAvatar` + `NetworkImage`); yoksa baş harfler |
+| `widgets/info_row.dart` | Detayda etiket + değer satırı (tıklanabilir olabilir) |
+| `widgets/overline.dart` | Başlık üstündeki küçük etiket ("REHBER") |
+| `widgets/error_view.dart` | Hata mesajı + "Tekrar dene" |
+| `utils/validators.dart` | Form doğrulama (backend kurallarının aynısı) |
+| `utils/format.dart` | Tarih biçimleme (`1994-04-12` ↔ `12.04.1994`), baş harfler, Türkçe büyük harf |
 
-**Expo Router dosya tabanlıdır:** `src/app` içindeki dosya yolu = ekranın URL'si.
-- `index.tsx` → `/`
-- `person/[id].tsx` → `/person/5` (köşeli parantez = dinamik parametre)
-- `form.tsx` → `/form` (ekleme) veya `/form?id=5` (düzenleme)
+**Diğer önemli dosyalar**
+- `pubspec.yaml`: Paketler (`http`, `url_launcher`, `flutter_localizations`) ve uygulamaya gömülü yazı tipleri (Fraunces, Inter).
+- `android/app/src/main/AndroidManifest.xml`: `INTERNET` izni ve `usesCleartextTraffic="true"` (http backend için), uygulama adı.
+- `assets/fonts/`: Yazı tipi dosyaları ve açık lisansları (OFL).
+
+**Ekranlar arası geçiş (navigasyon):**
+- Liste → Detay: `Navigator.push(context, MaterialPageRoute(builder: (_) => PersonDetailScreen(personId: person.id)))`
+- Liste → Yeni kişi: `Navigator.push(... PersonFormScreen())`
+- Detay → Düzenle: `Navigator.push(... PersonFormScreen(person: person))`
+- Geri dönüş: `Navigator.pop(context)`
 
 ---
 
@@ -97,12 +101,12 @@ Bilinçli olarak **basit** tutuldu: Redux yok, repository/service katmanı yok, 
 ### GET `/api/persons` — liste
 - **Backend:** `GetAll()` → `_db.Persons.AsNoTracking().OrderBy(p => p.FullName).ToListAsync()` → `200 OK` + JSON dizi.
   `AsNoTracking`: sadece okuduğumuz için EF'in değişiklik takibine gerek yok, daha hızlı.
-- **Mobil:** `index.tsx` → `useFocusEffect` içinde `loadPersons()` → `getPersons()` → `setPersons(data)` → `FlatList` yeniden çizilir.
+- **Mobil:** `PersonListScreen.initState` → `_personsFuture = PersonService.getPersons()` → `FutureBuilder` sonucu bekler → `ListView.builder` satırları çizer.
 
 ### GET `/api/persons/{id}` — detay
 - **Backend:** `GetById(int id)` → `FindAsync(id)`; `null` ise `404 NotFound`, değilse `200 OK`.
   `{id:int}` route kısıtı: `/api/persons/abc` gibi istekler controller'a hiç ulaşmaz (404).
-- **Mobil:** `person/[id].tsx` → `useLocalSearchParams()` ile URL'den id alınır → `getPerson(personId)`.
+- **Mobil:** Liste, `PersonDetailScreen(personId: person.id)` ile id'yi constructor'dan geçirir → `PersonService.getPerson(widget.personId)`.
 
 ### POST `/api/persons` — ekleme
 - **Backend:** `Create(Person person)`
@@ -111,7 +115,7 @@ Bilinçli olarak **basit** tutuldu: Redux yok, repository/service katmanı yok, 
   3. `person.Id = 0` → id'yi istemci belirleyemez, SQLite otomatik artırır.
   4. `Add` + `SaveChangesAsync` → INSERT.
   5. `CreatedAtAction(...)` → `201 Created`, `Location: /api/persons/11` başlığı ve oluşan kişi (id dahil).
-- **Mobil:** `form.tsx` → `validatePerson` → `createPerson(payload)` → dönen `created.id` ile `router.replace('/person/' + id)` → yeni kişinin detayı açılır.
+- **Mobil:** `PersonFormScreen._save` → `_formKey.currentState!.validate()` → `Person(...)` nesnesi → `PersonService.createPerson(person)` → `Navigator.pop` → liste kendini yeniler.
 
 ### PUT `/api/persons/{id}` — güncelleme
 - **Backend:** `Update(int id, Person input)`
@@ -119,11 +123,11 @@ Bilinçli olarak **basit** tutuldu: Redux yok, repository/service katmanı yok, 
   2. `FindAsync(id)` → yoksa `404`.
   3. Alanlar tek tek kopyalanır, `SaveChangesAsync` → EF değişen alanlar için UPDATE üretir.
   4. `200 OK` + güncel kişi.
-- **Mobil:** `form.tsx` (`id` parametresi varsa) → `updatePerson(id, payload)` → `router.back()` → detay ekranı odaklanınca kendini yeniden yükler.
+- **Mobil:** Form `person` parametresiyle açıldıysa (`_isEdit`) → `PersonService.updatePerson(person)` → `Navigator.pop` → detay ekranı `_reload()` ile güncel veriyi çeker.
 
 ### DELETE `/api/persons/{id}` — silme
 - **Backend:** `FindAsync` → yoksa `404`; varsa `Remove` + `SaveChangesAsync` → `204 No Content` (gövde yok).
-- **Mobil:** Detayda **Sil** → `ConfirmDialog` açılır → **Sil** onayı → `deletePerson(id)` → `router.back()` → liste odaklanınca yenilenir.
+- **Mobil:** Detayda **Sil** → `showDialog` ile `AlertDialog` → **Sil** onayı (`true` döner) → `PersonService.deletePerson(id)` → `Navigator.pop` → liste `_reload()` ile yenilenir.
 
 ### Durum kodları özeti
 | Kod | Anlamı | Nerede |
@@ -137,10 +141,10 @@ Bilinçli olarak **basit** tutuldu: Redux yok, repository/service katmanı yok, 
 
 ---
 
-## 4. async/await
+## 4. Asenkron programlama: `Future`, `async`/`await`
 
 Ağ ve veritabanı işlemleri **zaman alır**. Senkron yazılsaydı:
-- Mobilde arayüz (JS thread) donar, kullanıcı hiçbir şeye dokunamazdı.
+- Mobilde arayüz donar, kullanıcı hiçbir şeye dokunamazdı (Flutter arayüzü tek bir thread'de çizer).
 - Sunucuda istek başına bir thread boşta beklerdi, aynı anda az istek karşılanırdı.
 
 **C# tarafı**
@@ -151,84 +155,106 @@ public async Task<ActionResult<Person>> GetById(int id)
     ...
 }
 ```
-- `async` metot `Task<T>` döner. `await`, işlem bitene kadar metodu "duraklatır" ama thread'i bloklamaz; thread başka isteklere hizmet eder.
-- EF Core'un `ToListAsync`, `FindAsync`, `SaveChangesAsync` metotları asenkron veritabanı erişimidir.
+- `async` metot `Task<T>` döner. `await`, işlem bitene kadar metodu "duraklatır" ama thread'i bloklamaz.
 
-**TypeScript tarafı**
-```ts
-const loadPersons = useCallback(async () => {
-  try {
-    setError(null);
-    const data = await getPersons();   // Promise çözülene kadar bekle
-    setPersons(data);
-  } catch (err) {
-    setError(getErrorMessage(err));    // ağ hatası / 4xx / 5xx
-  } finally {
-    setLoading(false);                 // her durumda yükleniyor biter
-  }
-}, []);
+**Dart tarafı**
+```dart
+static Future<List<Person>> getPersons() async {
+  final response = await _send(() => http.get(_url()));   // cevap gelene kadar bekle
+  final List<dynamic> data = _decode(response);           // JSON metni → Dart listesi
+  return data.map((item) => Person.fromJson(item as Map<String, dynamic>)).toList();
+}
 ```
-- `axios.get` bir **Promise** döner. `await` ile sonucu bekleriz; hata olursa `catch` bloğuna düşer.
-- `finally` başarılı da olsa hatalı da olsa çalışır → spinner her durumda kapanır.
-- Axios, `2xx` dışındaki durum kodlarında (400, 404, 500) Promise'i **reject** eder; bu yüzden hata yönetimi tek `catch` ile yapılır.
+- `Future<T>`: "ileride bir T değeri gelecek" sözü. C#'taki `Task<T>`, JavaScript'teki `Promise` ile aynı fikir.
+- `await` beklerken Dart'ın **event loop**'u boş kalmaz; animasyonlar ve dokunmalar çalışmaya devam eder.
+- Hata olursa `await` satırı istisna (exception) fırlatır; `try`/`on ApiException catch (e)` ile yakalanır.
+
+**`_send` ne yapıyor?** (`person_service.dart`)
+1. İsteği `timeout(10 sn)` ile gönderir. Ağ hatası/zaman aşımı → `ApiException("Sunucuya ulaşılamadı...")`.
+2. Durum kodu `200–299` ise cevabı döner.
+3. Değilse gövdeyi okuyup Türkçe mesaj üretir: ASP.NET doğrulama hataları (`errors`), controller'ın `message` alanı veya `404`.
+
+> `http` paketi, `fetch` gibi, 400/404/500 cevaplarında **kendiliğinden hata fırlatmaz**. Bu yüzden durum kodunu `_send` içinde kendimiz kontrol ediyoruz.
+
+**`FutureBuilder`** (liste ve detay ekranı)
+```dart
+FutureBuilder<List<Person>>(
+  future: _personsFuture,
+  builder: (context, snapshot) {
+    if (snapshot.hasData) return _buildList(snapshot.data!);                    // veri geldi
+    if (snapshot.connectionState != ConnectionState.done) return ...spinner;   // bekleniyor
+    return ErrorView(message: '${snapshot.error}', onRetry: _reload);          // hata
+  },
+)
+```
+- Future'ı dinler, durumu değiştikçe `builder`'ı yeniden çağırır. Yükleniyor / veri / hata durumları tek yerde.
+- Future'ı **`initState` içinde** oluşturuyoruz. `build` içinde oluştursaydık her yeniden çizimde yeni bir istek atılırdı.
 
 ---
 
 ## 5. JSON veri akışı (örnek: yeni kişi ekleme)
 
-1. Kullanıcı formu doldurur. Değerler `values` state'inde string olarak tutulur.
-2. `handleSubmit` → `validatePerson(values)` → hata yoksa `payload` nesnesi (`PersonInput`) oluşturulur. Boş fotoğraf → `null`.
-3. `createPerson(payload)` → `api.post('/api/persons', payload)`. Axios nesneyi **JSON.stringify** ile metne çevirir, `Content-Type: application/json` başlığıyla gönderir.
-4. ASP.NET Core **System.Text.Json** ile gövdeyi okuyup `Person` nesnesine çevirir (model binding). JSON'daki `fullName` → C#'taki `FullName` (camelCase ↔ PascalCase otomatik).
-5. Doğrulama → `SaveChangesAsync` → SQLite `INSERT`.
-6. Controller `Person` nesnesini döner → System.Text.Json yeniden camelCase JSON'a çevirir → `201` cevabı.
-7. Axios JSON'u **parse** eder → `response.data` artık `Person` tipinde bir JS nesnesi.
-8. `router.replace('/person/' + created.id)` → detay ekranı.
+1. Kullanıcı formu doldurur. Her alanın içeriği bir `TextEditingController`'da durur; doğum tarihi `showDatePicker` ile seçilip `_birthDate` (`DateTime`) değişkenine yazılır.
+2. **Kaydet** → `_save()` → `_formKey.currentState!.validate()` her alanın `validator` fonksiyonunu çalıştırır. Hata varsa alanın altında kırmızı mesaj çıkar ve istek atılmaz.
+3. Hata yoksa `Person(...)` nesnesi oluşturulur. Boş fotoğraf adresi → `null`.
+4. `PersonService.createPerson(person)` → `jsonEncode(person.toJson())` nesneyi JSON metnine çevirir → `http.post(..., headers: {'Content-Type': 'application/json'}, body: ...)`.
+5. ASP.NET Core gövdeyi okuyup `Person` nesnesine çevirir (model binding). JSON'daki `fullName` → C#'taki `FullName` (camelCase ↔ PascalCase otomatik).
+6. Doğrulama → `SaveChangesAsync` → SQLite `INSERT`.
+7. Controller `201` ile oluşan kişiyi JSON olarak döner.
+8. Mobilde `utf8.decode(response.bodyBytes)` → `jsonDecode` → `Map` → `Person.fromJson` → `Person` nesnesi (artık `id`'si var).
+9. `SnackBar` ile "… eklendi" mesajı, `Navigator.pop` ile listeye dönüş, liste `_reload()` ile güncel veriyi çeker.
 
-Tarih özel durumu: C# `DateOnly` ↔ JSON `"1994-04-12"` ↔ TS `string`. Ekranda `formatDate` ile `12 Nisan 1994` gösterilir.
+**Tarih özel durumu:** C# `DateOnly` ↔ JSON `"1994-04-12"` ↔ Dart `DateTime`. Gelirken `DateTime.parse`, giderken `formatIsoDate`. Ekranda `formatDisplayDate` ile `12.04.1994` gösterilir.
 
----
-
-## 6. React Native state yönetimi
-
-Redux veya Context **kullanılmadı**; her ekran kendi verisini `useState` ile yönetir ve API'yi "tek doğru kaynak" kabul eder.
-
-| Hook | Nerede | Ne için |
-| --- | --- | --- |
-| `useState` | Tüm ekranlar | `persons`, `person`, `loading`, `error`, `values`, `errors`, `submitting`, `confirmVisible` |
-| `useFocusEffect` | Liste ve detay | Ekran **her odaklandığında** veriyi yeniden çeker |
-| `useCallback` | `loadPersons`, `loadPerson` | Fonksiyonun her render'da yeniden oluşmasını engeller; `useFocusEffect` gereksiz tetiklenmez |
-| `useEffect` | Form | Düzenleme modunda kişi verisini bir kez yükler |
-| `useLocalSearchParams` | Detay, form | URL'deki `id` parametresini okur |
-| `useSafeAreaInsets` | Liste, detay, form | Çentik/gezinme çubuğu boşlukları |
-
-**Liste neden kendiliğinden güncelleniyor?** Ekleme/düzenleme/silme sonrası `router.back()` veya `router.replace()` ile önceki ekrana dönülür. O ekran yeniden **odaklandığı** için `useFocusEffect` çalışır ve API'den güncel veriyi çeker. Global state gerekmez.
-
-**Kontrollü bileşen (controlled input):** `TextInput`'un değeri `value={values.email}` ile state'ten gelir; her tuşta `onChangeText` → `handleChange` → `setValues` çağrılır. Böylece state ve ekran her zaman aynıdır.
-
-**Ekran durumları:** `loading` → spinner, `error` → hata mesajı + "Tekrar dene", veri boş → "Henüz kimse yok". Hepsi `StateView` bileşeniyle gösterilir.
+**Türkçe karakter:** Gövde `utf8.decode(response.bodyBytes)` ile çözülür; böylece "Şule Çağlar" bozulmaz.
 
 ---
 
-## 7. Tasarım sistemi
+## 6. Flutter'da state (durum) yönetimi
 
-`src/constants/theme.ts` tek kaynak. Ekranlarda sabit renk/sayı yazılmaz, `colors.aubergine`, `spacing.xl` gibi token'lar kullanılır.
+Provider, Bloc veya Riverpod **kullanılmadı**; her ekran kendi verisini `StatefulWidget` + `setState` ile yönetir ve API'yi "tek doğru kaynak" kabul eder.
 
-| Token | Renk | Kullanım |
+| Kavram | Nerede | Ne için |
 | --- | --- | --- |
-| `bone` | `#F3EEE7` Soft Bone | Ana arka plan |
-| `porcelain` | `#E8E0D6` Warm Porcelain | Detaydaki fotoğraf alanı, basılı satır, avatar zemini |
-| `surface` | `#FBF8F4` | Form alanlarının zemini |
-| `aubergine` | `#2B1830` Deep Aubergine | Başlıklar, ad-soyad, birincil butonlar, FAB |
-| `plum` | `#5A465A` Smoky Plum | İkincil metinler, etiketler |
-| `saffron` | `#D98A1E` Burnt Marigold / Saffron | Küçük vurgular: FAB `+`, başlık çizgileri, zorunlu alan yıldızı, link alt çizgisi |
-| `ash` | `#CFC8C2` Soft Ash | Kenarlıklar ve ayırıcı çizgiler |
-| `ink` | `#1A1618` Charcoal Ink | Form girdileri ve bilgi değerleri (yüksek kontrast) |
-| `danger` | `#9E3B36` | Hata mesajları, silme aksiyonu |
+| `StatelessWidget` | `PersonRow`, `PersonAvatar`, `InfoRow`, `ErrorView`, `Overline` | Sadece aldığı parametreleri çizer, kendi durumu yok |
+| `StatefulWidget` + `State` | Üç ekran | Değişen veri tutar (`_personsFuture`, `_deleting`, `_saving`, `_birthDate`) |
+| `initState()` | Üç ekran | Ekran ilk açıldığında bir kez çalışır: ilk API isteği, formu doldurma |
+| `setState(() { ... })` | `_reload`, `_deleting`, `_saving`, tarih seçimi | "Durum değişti, `build`'i yeniden çalıştır" der |
+| `dispose()` | Form | `TextEditingController`'ları bellekten temizler |
+| `mounted` | `await` sonrası her yer | Ekran kapandıysa `setState`/`context` kullanılmaz (hata önlenir) |
+| `GlobalKey<FormState>` | Form | Tüm alanları tek seferde `validate()` etmek için |
 
-- **Tipografi:** Fraunces (serif) başlıklarda; `typography.note` ile Fraunces italik "not" satırları (liste altındaki kişi sayısı, detaydaki departman, bölüm başlıkları). Gövde Inter. Bold yalnızca ad-soyad ve butonlarda.
-- **Yerleşim:** Satırlar kart değil, ince `ash` çizgiyle ayrılır. Detayda porselen bir görsel alan ve ona taşan büyük fotoğraf var (fotoğrafın etrafındaki `bone` renkli halka iki yüzeyi ayırır).
-- **Gölge:** Tek bir token (`shadow.soft`), yalnızca FAB ve onay penceresinde. Köşe yarıçapı 8–14px.
+**Liste neden kendiliğinden güncelleniyor?**
+```dart
+Future<void> _openDetail(Person person) async {
+  await Navigator.push(context, MaterialPageRoute(builder: (_) => PersonDetailScreen(personId: person.id)));
+  if (mounted) _reload();
+}
+```
+`Navigator.push` bir `Future` döner ve açılan ekran kapanınca (`pop`) tamamlanır. `await` ile dönüşü bekleyip `_reload()` çağırıyoruz. Detayda düzenleme veya silme olduysa liste güncel veriyi çeker. Global state gerekmez.
+
+**Ekran durumları:** veri yokken bekleniyor → `CircularProgressIndicator`, hata → `ErrorView` + "Tekrar dene", liste boş → bilgi metni.
+
+---
+
+## 7. Tasarım sistemi (Modern Editorial)
+
+`lib/theme/app_theme.dart` tek kaynak. Ekranlarda renk kodu yazılmaz; `AppColors.aubergine`, `AppText.title` gibi isimler kullanılır.
+
+| Sabit | Renk | Kullanım |
+| --- | --- | --- |
+| `silver` | `#DDE3E8` Ice Silver | Ana zemin |
+| `silverLight` | `#EEF1F4` | Bilgi panelleri, diyalog ve tarih seçici zemini |
+| `aubergine` | `#3A0F34` Deep Aubergine | Başlıklar, ad-soyad, ana butonlar, FAB |
+| `marigold` | `#EAAA00` Marigold | Sadece vurgu: başlık üstü çizgi, FAB `+`, foto halkası, e-posta/telefon aksiyonları, odaklanan form alanı |
+| `muted` | `#5E4A5B` | İkincil metinler ve etiketler |
+| `hairline` | `%15 saydam Aubergine` | İnce ayırıcı çizgiler |
+| `danger` | `#A3262A` | Silme aksiyonu |
+
+- **Tipografi:** Fraunces (serif) büyük başlıklarda ve italik bölüm başlıklarında; Inter (sans-serif) metinlerde. Etiketler küçük, büyük harfli ve harf aralıklı (`AppText.label`).
+- **Türkçe büyük harf:** Dart'ın `toUpperCase()`'i dilden bağımsızdır, "yeri" → "YERI" yapar. `toUpperTr()` önce `i` → `İ` çevirir: "DOĞUM YERİ".
+- **Yazı tipleri uygulamaya gömülü** (`pubspec.yaml` → `fonts:`). İnternet olmasa da aynı görünür.
+- **`buildAppTheme()`:** Material bileşenlerinin (buton, form alanı, diyalog, SnackBar, FAB, tarih seçici) görünümü burada bir kez ayarlanır; ekranlar ayrıca stil yazmaz.
 
 ---
 
@@ -241,153 +267,165 @@ Kaynak odaklı bir API stilidir. Kaynak `persons`, adresi `/api/persons`. İşle
 PUT kaynağın tamamını gönderip değiştirir; PATCH sadece değişen alanları gönderir. Formda tüm alanları düzenlediğimiz için PUT kullandım.
 
 **3. POST neden 201, DELETE neden 204 dönüyor?**
-201 "yeni kaynak oluşturuldu" demektir; `CreatedAtAction` ayrıca `Location` başlığına yeni kaydın adresini koyar. 204 "başarılı ama gönderilecek içerik yok" demektir; silinen kaydı geri döndürmeye gerek yok.
+201 "yeni kaynak oluşturuldu" demektir; `CreatedAtAction` ayrıca `Location` başlığına yeni kaydın adresini koyar. 204 "başarılı ama gönderilecek içerik yok" demektir.
 
 **4. `[ApiController]` attribute'u ne yapar?**
-Gövdeyi otomatik olarak parametreye bağlar (`[FromBody]` yazmaya gerek kalmaz) ve ModelState geçersizse action çalışmadan otomatik `400 ValidationProblem` döner.
+Gövdeyi otomatik olarak parametreye bağlar ve ModelState geçersizse action çalışmadan otomatik `400 ValidationProblem` döner.
 
 **5. Dependency Injection nedir? `AppDbContext` controller'a nasıl geliyor?**
-`Program.cs`'te `AddDbContext` ile servis kaydedilir. ASP.NET Core her istekte controller'ı oluştururken constructor'daki `AppDbContext` parametresini görür ve kayıtlı örneği verir. Biz `new` yazmayız. DbContext varsayılan olarak "scoped"tur: her HTTP isteğine bir tane.
+`Program.cs`'te `AddDbContext` ile servis kaydedilir. ASP.NET Core controller'ı oluştururken constructor'daki `AppDbContext` parametresini görür ve kayıtlı örneği verir. DbContext "scoped"tur: her HTTP isteğine bir tane.
 
 **6. Entity Framework Core nedir, neden kullandın?**
-ORM'dir: C# nesnelerini veritabanı tablolarına eşler. SQL yazmadan `_db.Persons.Add(p)` ve `SaveChangesAsync()` ile INSERT yapılır. Veritabanı değiştirmek (SQLite → SQL Server) sadece `UseSqlite` satırını değiştirmeyi gerektirir.
+ORM'dir: C# nesnelerini veritabanı tablolarına eşler. SQL yazmadan `_db.Persons.Add(p)` ve `SaveChangesAsync()` ile INSERT yapılır.
 
 **7. `SaveChangesAsync` çağırmazsan ne olur?**
-`Add`, `Remove` veya alan değişiklikleri sadece bellekte (change tracker) kalır; veritabanına yazılmaz.
+`Add`, `Remove` veya alan değişiklikleri sadece bellekte kalır; veritabanına yazılmaz.
 
 **8. `EnsureCreated` ile Migration farkı nedir?**
-`EnsureCreated` veritabanı yoksa modele göre bir kerede oluşturur; şema sonradan değişirse güncellemez. Migration ise şema değişikliklerini sürüm sürüm uygular. Tek tablolu ve şeması sabit bir vize projesi için `EnsureCreated` daha basit. Model değişirse `persons.db` silinip yeniden oluşturulur.
+`EnsureCreated` veritabanı yoksa bir kerede oluşturur; şema sonradan değişirse güncellemez. Migration şema değişikliklerini sürüm sürüm uygular. Tek tablolu bir vize projesi için `EnsureCreated` daha basit.
 
-**9. Örnek veriler nasıl ekleniyor?**
-`AppDbContext.OnModelCreating` içinde `HasData(...)` ile. `EnsureCreated` tabloyu oluştururken bu kayıtları da ekler. Seed verilerinde Id'ler elle verilir.
+**9. Veri doğrulaması nerede yapılıyor? Neden iki yerde?**
+Mobilde `utils/validators.dart` (anında geri bildirim, gereksiz istek yok) ve backend'de Data Annotations (asıl güvenlik; Swagger veya curl ile gelen istekler mobil doğrulamayı atlar). Sunucu doğrulaması zorunlu, istemci doğrulaması kullanıcı deneyimi içindir.
 
-**10. Veri doğrulaması nerede yapılıyor? Neden iki yerde?**
-Mobilde `utils/validation.ts` (kullanıcıya anında geri bildirim, gereksiz istek yok) ve backend'de Data Annotations (asıl güvenlik; Swagger veya curl ile gelen istekler mobil doğrulamayı atlayabilir). Sunucu doğrulaması zorunlu, istemci doğrulaması kullanıcı deneyimi içindir.
+**10. Android emülatöründe neden `localhost` değil `10.0.2.2`?**
+Emülatör ayrı bir sanal cihazdır; içindeki `localhost` emülatörün kendisidir. `10.0.2.2`, emülatörden bilgisayarın loopback adresine yönlendirilen özel adrestir. Fiziksel telefonda bilgisayarın IP'si kullanılır (`--dart-define=API_URL=...`).
 
-**11. Android emülatöründe neden `localhost` değil `10.0.2.2`?**
-Emülatör ayrı bir sanal cihazdır; içindeki `localhost` emülatörün kendisini gösterir. `10.0.2.2`, emülatörden ana bilgisayarın loopback adresine yönlendirilen özel adrestir. Fiziksel telefonda ise bilgisayarın Wi-Fi IP'si kullanılır.
+**11. `--dart-define` ve `String.fromEnvironment` nasıl çalışır?**
+`flutter run --dart-define=API_URL=http://...` derleme sırasında bir sabit tanımlar. `config.dart`'taki `const String.fromEnvironment('API_URL', defaultValue: ...)` bu değeri okur; verilmezse varsayılanı kullanır. Derleme anında koda gömüldüğü için gizli bilgi (parola) koymak doğru olmaz.
 
-**12. Backend neden `0.0.0.0`'da dinliyor?**
-`localhost`'ta dinleyen bir sunucuya sadece aynı bilgisayardan erişilir. `0.0.0.0` tüm ağ arayüzlerinde dinler; telefon aynı ağdan IP ile erişebilir.
+**12. AndroidManifest'e neden `INTERNET` izni ve `usesCleartextTraffic` ekledin?**
+`INTERNET` izni olmadan uygulama ağa çıkamaz (Flutter bunu sadece debug derlemesine kendisi ekler; release APK'de şart). `usesCleartextTraffic`: Android 9'dan beri şifresiz `http://` trafiği varsayılan olarak engellenir; yerel backend HTTPS olmadığı için izin verdik.
 
-**13. `usesCleartextTraffic` neden gerekli?**
-Android 9'dan itibaren `http://` (şifresiz) trafik varsayılan olarak engellenir. Yerel backend HTTPS değil, bu yüzden APK'de izin verilmesi gerekir. Expo Go geliştirme modunda buna zaten izin verir.
+**13. `StatelessWidget` ile `StatefulWidget` farkı?**
+Stateless sadece parametrelerine göre çizer, değişmez (`PersonRow`). Stateful'ın bir `State` nesnesi vardır; içindeki değişkenler değişince `setState` ile ekran yeniden çizilir (ekranlar).
 
-**14. axios neden, `fetch` yerine?**
-`baseURL` ve `timeout` ile tek bir örnek oluşturulabilir, JSON'u otomatik çevirir, 4xx/5xx durumlarında otomatik hata fırlatır (`fetch` fırlatmaz, `response.ok` kontrol etmek gerekir), `isAxiosError` ile hata türünü ayırmak kolaydır.
+**14. `setState` ne yapar? Çağırmazsan ne olur?**
+Flutter'a "durum değişti, bu widget'ın `build` metodunu yeniden çalıştır" der. Değişkeni değiştirip `setState` çağırmazsan değişken değişir ama ekran güncellenmez.
 
-**15. API çağrılarını neden ayrı bir dosyada topladın?**
-Tek sorumluluk ve tekrar kullanım: adres veya başlık değişirse tek yer değişir. Ekranlar HTTP ayrıntısını bilmez, sadece `getPersons()` çağırır.
+**15. `FutureBuilder` neden kullandın? Future'ı neden `build` içinde oluşturmadın?**
+Yükleniyor/veri/hata durumlarını tek yerde yönetir. `build` sık çalışır (her `setState`, klavye açılması...). Future orada oluşturulsaydı her seferinde yeni bir HTTP isteği atılırdı. Bu yüzden `initState`'te bir kez oluşturuluyor, yenilemek için `_reload()` yeni Future atıyor.
 
-**16. `useEffect` ile `useFocusEffect` farkı?**
-`useEffect` bileşen ilk eklendiğinde (ve bağımlılıklar değişince) çalışır. Stack navigasyonda alttaki ekran bellekte kalır, geri dönüldüğünde `useEffect` tekrar çalışmaz. `useFocusEffect` ise ekran her görünür olduğunda çalışır; listeyi güncel tutmak için onu kullandım.
+**16. `mounted` kontrolü neden var?**
+`await` sırasında kullanıcı geri tuşuna basıp ekranı kapatmış olabilir. Kapanmış ekranda `setState` veya `context` kullanmak hata verir. `if (!mounted) return;` bunu önler.
 
-**17. `useCallback` neden kullanıldı?**
-`useFocusEffect` verilen fonksiyon değişirse yeniden çalışır. `useCallback` olmadan her render'da yeni fonksiyon oluşur ve gereksiz yeniden yüklemeler olabilir. Bağımlılık dizisi (`[personId]`) değişmedikçe aynı fonksiyon kullanılır.
+**17. `fromJson` / `toJson` ne işe yarıyor? `factory` nedir?**
+`fromJson` sunucudan gelen `Map`'i tip güvenli bir `Person` nesnesine çevirir; `toJson` tersini yapar. `factory` constructor her zaman yeni nesneyi doğrudan oluşturmak zorunda olmayan, mantık içerebilen bir constructor'dır; JSON'dan nesne üretmek için yaygın kullanılır.
 
-**18. `FlatList` neden `ScrollView` + `map` yerine?**
-`FlatList` sadece ekranda görünen satırları çizer (virtualization); uzun listelerde bellek ve performans avantajı sağlar. Ayrıca `ListHeaderComponent`, `ListEmptyComponent`, `ItemSeparatorComponent` ve aşağı çekip yenileme (`onRefresh`) hazır gelir.
+**18. Dart'ta `?`, `!`, `??` ne demek? (Null safety)**
+`String?` = null olabilir. `snapshot.data!` = "burada null olmadığından eminim". `widget.person?.id ?? 0` = person null ise `0` kullan. Derleyici null olabilecek bir değeri kontrolsüz kullanmana izin vermez.
 
-**19. `keyExtractor` ne işe yarar?**
-React'in her satırı benzersiz bir anahtarla tanımasını sağlar; liste değiştiğinde sadece değişen satırları günceller. Kişinin `id`'sini string olarak kullandım.
+**19. `final`, `const` ve `late` farkı?**
+`final` bir kez atanır (çalışma anında). `const` derleme anında bilinen sabittir; `const` widget'lar yeniden oluşturulmaz (performans). `late` değişkenin daha sonra (ör. `initState`'te) atanacağını söyler: `late Future<List<Person>> _personsFuture;`.
 
-**20. E-postaya basınca e-posta uygulaması nasıl açılıyor?**
-`Linking.openURL('mailto:adres')` ve `Linking.openURL('tel:numara')`. İşletim sistemi bu URL şemalarını işleyen uygulamayı (Android'de intent) açar. Açılamazsa `catch` ile kullanıcıya mesaj gösterilir.
+**20. `ListView.builder` neden? `Column` + `map` olmaz mıydı?**
+`ListView.builder` satırları ihtiyaç oldukça (ekrana girdikçe) oluşturur; uzun listelerde bellek ve performans avantajı sağlar. `Column` kaydırılamaz ve hepsini bir anda çizer.
 
-**21. Silme onayında neden `Alert.alert` değil de `Modal`?**
-`Alert.alert` Android'de buton rengini değiştirmeye izin vermez ve web'de çalışmaz. `ConfirmDialog` bileşeni `Modal` ile yapıldı; butonların rengi ve yazısı tasarım token'larıyla kontrol edilir.
+**21. Ekranlar arasında veri nasıl taşınıyor?**
+Constructor parametresiyle: `PersonDetailScreen(personId: person.id)`, `PersonFormScreen(person: person)`. `Navigator.push` yeni ekranı yığına (stack) ekler, `Navigator.pop` çıkarır.
 
-**22. TypeScript'in projeye katkısı nedir?**
-`Person` arayüzü sayesinde `person.fullName` yazarken yanlış alan adı derleme anında yakalanır, axios çağrılarında `api.get<Person[]>` ile dönen verinin tipi bilinir. `PersonInput = Omit<Person, 'id'>` ile POST gövdesinde id olmaması tip seviyesinde garanti edilir.
+**22. Aynı form hem ekleme hem düzenleme için nasıl çalışıyor?**
+`PersonFormScreen`'in `person` parametresi var mı diye bakılır (`_isEdit`). Varsa `initState`'te alanlar doldurulur ve kaydederken `updatePerson` (PUT) çağrılır; yoksa boş form açılır ve `createPerson` (POST) çağrılır.
 
-**23. Sunucuya ulaşılamazsa ne oluyor?**
-Axios hatasında `error.response` yoksa (sunucu kapalı, yanlış IP, 10 sn timeout) `getErrorMessage` "Sunucuya ulaşılamadı..." mesajını ve denenen adresi döner. Liste ekranı bunu "Bağlantı kurulamadı" başlığı ve "Tekrar dene" butonuyla gösterir.
+**23. `TextEditingController` neden var, neden `dispose` ediliyor?**
+Metin kutusunun içeriğini okumak/yazmak için. Dinleyiciler ve kaynak tutar; ekran kapanınca `dispose()` ile serbest bırakılmazsa bellek sızıntısı olur.
 
-**24. Aynı form hem ekleme hem düzenleme için nasıl çalışıyor?**
-`form.tsx` URL'de `id` parametresi var mı diye bakar (`isEdit`). Varsa önce `getPerson` ile alanları doldurur ve kaydederken `updatePerson` (PUT) çağırır; yoksa boş form açar ve `createPerson` (POST) çağırır.
+**24. Form doğrulaması nasıl çalışıyor?**
+Her `TextFormField`'ın `validator` fonksiyonu var; hata varsa mesaj (`String`), yoksa `null` döner. `_formKey.currentState!.validate()` hepsini çalıştırır, hepsi `null` ise `true` döner.
 
-**25. `EXPO_PUBLIC_API_URL` nasıl çalışır?**
-Expo, `EXPO_PUBLIC_` ile başlayan ortam değişkenlerini derleme sırasında koda gömer; `process.env.EXPO_PUBLIC_API_URL` ile okunur. Bu yüzden gizli bilgi (parola, anahtar) için kullanılmamalıdır; biz sadece sunucu adresini koyuyoruz.
+**25. E-postaya basınca e-posta uygulaması nasıl açılıyor?**
+`url_launcher` paketinin `launchUrl(Uri(scheme: 'mailto', path: email))` fonksiyonu. Android'de bu bir **intent** başlatır; `mailto:` için e-posta, `tel:` için arama uygulaması açılır. Açılamazsa `SnackBar` ile mesaj gösterilir.
 
-**26. CORS nedir, mobilde neden önemli değil?**
-Tarayıcıların, bir sitenin başka bir alan adına istek atmasını kısıtlayan güvenlik kuralıdır. Native mobil uygulamalar tarayıcı olmadığı için CORS uygulanmaz; sadece Expo web önizlemesi için açtım.
+**26. Silme onayı nasıl çalışıyor?**
+`showDialog<bool>` bir `AlertDialog` açar ve kullanıcı butona basana kadar bekler. "Vazgeç" `Navigator.pop(context, false)`, "Sil" `Navigator.pop(context, true)` döner. Sadece `true` gelirse DELETE isteği atılır.
 
-**27. Rastgele bir e-posta yazınca neden kabul ediliyor? Adresin gerçek olduğunu nasıl anlarsın?**
-Doğrulama yalnızca **biçimi** kontrol eder: `ad@alan.uzanti`, uzantı en az 2 harf, Türkçe karakter yok. Aynı düzenli ifade (regex) hem `validation.ts`'de hem `Person.cs`'teki `[RegularExpression]`'da var. Hazır `[EmailAddress]` attribute'u kullanılmadı çünkü `a@b` gibi noktasız adresleri bile kabul ediyor. Adresin gerçekten var olduğunu hiçbir regex bilemez; bunun tek yolu o adrese doğrulama bağlantısı içeren bir e-posta göndermektir. Bu projenin kapsamı dışında.
+**27. Neden `http` paketi? (`dio` yerine)**
+Dart ekibinin resmi, sade paketi; bu projenin ihtiyacı için yeterli. Ortak işler (zaman aşımı, durum kodu kontrolü, hata mesajı) `_send` metodunda bir kez yazıldı.
+
+**28. Hot reload ile hot restart farkı?**
+Hot reload (`r`) değişen kodu çalışan uygulamaya enjekte eder, ekranın durumu korunur. Hot restart (`R`) uygulamayı baştan başlatır, durum sıfırlanır. `initState` veya `main` değişikliklerinde hot restart gerekir.
+
+**29. Sunucuya ulaşılamazsa ne oluyor?**
+`_send` içindeki `try` bloğu ağ hatasını veya 10 saniyelik zaman aşımını yakalar ve "Sunucuya ulaşılamadı..." mesajıyla birlikte denenen adresi içeren bir `ApiException` fırlatır. Liste ekranı bunu "Bağlantı kurulamadı" başlığı ve "Tekrar dene" butonuyla gösterir.
+
+**30. Rastgele bir e-posta yazınca neden kabul ediliyor?**
+Doğrulama yalnızca **biçimi** kontrol eder: `ad@alan.uzanti`, uzantı en az 2 harf, Türkçe karakter yok. Aynı düzenli ifade (regex) hem `validators.dart`'ta hem `Person.cs`'teki `[RegularExpression]`'da var. Adresin gerçekten var olduğunu hiçbir regex bilemez; bunun tek yolu doğrulama e-postası göndermektir.
+
+**31. CORS nedir, mobilde neden önemli değil?**
+Tarayıcıların, bir sitenin başka bir adrese istek atmasını kısıtlayan güvenlik kuralıdır. Mobil uygulamalar tarayıcı olmadığı için CORS uygulanmaz; sadece tarayıcıdan (Flutter web) denemek için açık.
 
 ---
 
 ## 9. Canlı kod değişikliği örnekleri
 
-Her örnekte hangi dosyada neyin değişeceği yazılıdır. Değişiklik sonrası Expo otomatik yenilenir (Fast Refresh). Backend değişikliklerinden sonra `dotnet run` yeniden başlatılmalıdır.
+Uygulama `flutter run` ile çalışırken dosyayı kaydedin, terminalde **`r`** (hot reload) tuşuna basın. `initState` veya `main` gibi başlangıç kodu değiştiyse **`R`** (hot restart). Backend değişikliklerinden sonra `dotnet run` yeniden başlatılmalıdır.
 
 ### 1) Listede departman yerine telefon numarasını göster
-`src/components/PersonRow.tsx`
-```tsx
-<Text style={styles.department} numberOfLines={1}>
-  {person.phone}            {/* önce: {person.department} */}
-</Text>
+`lib/widgets/person_row.dart`
+```dart
+Text(person.phone, style: AppText.secondary, maxLines: 1, overflow: TextOverflow.ellipsis),
+// önce: Text(person.department, ...)
 ```
-İsterseniz biçimli göstermek için: `import { formatPhone } from '../utils/format';` ve `{formatPhone(person.phone)}`.
 
 ### 2) Silme onayındaki butonun rengini değiştir
-`src/components/ConfirmDialog.tsx` → `styles.confirmButton`
-```ts
-confirmButton: {
-  backgroundColor: colors.aubergine,   // önce: colors.danger
-},
+`lib/screens/person_detail_screen.dart` → `_confirmDelete` içindeki `FilledButton`
+```dart
+style: FilledButton.styleFrom(backgroundColor: Colors.green, minimumSize: const Size(88, 48)),
+// önce: backgroundColor: AppColors.danger
 ```
-Ya da tamamen yeni bir renk: `backgroundColor: '#1F6F50'`.
+Tüm uygulamadaki silme rengini değiştirmek için: `lib/theme/app_theme.dart` → `AppColors.danger`.
 
 ### 3) FAB'ın rengini / simgesini değiştir
-`src/app/index.tsx`
-```tsx
-<Feather name="user-plus" size={26} color={colors.white} />   // önce: "plus", colors.saffron
-```
-Zemin: `styles.fab.backgroundColor: colors.saffron`.
+- Simge: `lib/screens/person_list_screen.dart` → `child: const Icon(Icons.person_add, size: 28)` (önce `Icons.add`).
+- Renk: `lib/theme/app_theme.dart` → `floatingActionButtonTheme` içindeki `backgroundColor` / `foregroundColor`.
 
 ### 4) Liste başlığını değiştir ("Kişiler" → "Rehber")
-`src/app/index.tsx` → `<Text style={styles.title}>Rehber</Text>`
+`lib/screens/person_list_screen.dart` → `_Header` içinde `const Text('Rehber', style: AppText.hero)`.
 
 ### 5) Listeyi ada göre değil departmana göre sırala
 `backend_api/Controllers/PersonsController.cs` → `GetAll()`
 ```csharp
 .OrderBy(p => p.Department).ThenBy(p => p.FullName)
 ```
-Alternatif (sadece mobilde): `index.tsx` içinde `setPersons([...data].sort((a, b) => a.department.localeCompare(b.department, 'tr')));`
+Alternatif (sadece mobilde): `person_service.dart` → `getPersons` içindeki `return` satırının yerine
+```dart
+final persons = data.map((item) => Person.fromJson(item as Map<String, dynamic>)).toList();
+persons.sort((a, b) => a.department.compareTo(b.department));
+return persons;
+```
 
 ### 6) Profil fotoğraflarını büyüt / küçült
-`src/components/PersonRow.tsx` → `<Avatar ... size={64} />` (önce 52). Ayırıcı çizgi hizası için `index.tsx` → `styles.separator.marginLeft` içindeki `52`'yi de `64` yapın.
+`lib/widgets/person_row.dart` → `PersonAvatar(..., radius: 32)` (önce 26). Detaydaki büyük fotoğraf: `person_detail_screen.dart` → `radius: 72`.
 
 ### 7) Detayda yeni bir bilgi satırı göster (ör. kişinin yaşı)
-`src/app/person/[id].tsx` → "Doğum tarihi" satırının altına:
-```tsx
-<InfoRow
-  label="Yaş"
-  value={String(new Date().getFullYear() - Number(person.birthDate.slice(0, 4)))}
-/>
+`lib/screens/person_detail_screen.dart` → "Kişisel bilgiler" bölümünde "Doğum tarihi" satırının altına:
+```dart
+InfoRow(label: 'Yaş', value: '${DateTime.now().year - person.birthDate.year}', showDivider: false),
 ```
+(Üstteki "Doğum tarihi" satırında `showDivider: false`'u silin ki aralarında çizgi olsun.)
 
 ### 8) Telefonu zorunlu olmaktan çıkar
-- Mobil: `src/utils/validation.ts` → `if (values.phone.trim() && !PHONE_REGEX.test(values.phone.trim()))`
-- Backend: `Models/Person.cs` → `Phone` üzerindeki `[Required]` satırını silin. (Form etiketi için `form.tsx` içinde telefon alanındaki `required`'ı kaldırın.)
+- Mobil: `lib/utils/validators.dart` → `validatePhone` başına `if (value == null || value.trim().isEmpty) return null;`
+- Backend: `Models/Person.cs` → `Phone` üzerindeki `[Required]` satırını silin.
 
-### 9) Yeni kişi eklendikten sonra detay yerine listeye dön
-`src/app/form.tsx` → `handleSubmit` içinde
-```tsx
-router.back();   // önce: router.replace(`/person/${created.id}`);
+### 9) Yeni kişi eklendikten sonra listeye değil, yeni kişinin detayına git
+`lib/screens/person_form_screen.dart` → `_save` içinde
+```dart
+final created = await PersonService.createPerson(person);
+if (!mounted) return;
+Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => PersonDetailScreen(personId: created.id)));
 ```
+(Dosyanın başına `import 'person_detail_screen.dart';` ekleyin.)
 
 ### 10) Ana vurgu rengini değiştir (tüm uygulamada)
-`src/constants/theme.ts`
-```ts
-saffron: '#2F8FE5',   // önce: '#D98A1E'
+`lib/theme/app_theme.dart`
+```dart
+static const marigold = Color(0xFF2F8FE5); // önce: Color(0xFFEAAA00)
 ```
-Token sistemi sayesinde FAB simgesi, başlık çizgileri ve yıldızlar birlikte değişir.
+Başlık çizgileri, FAB simgesi, foto halkası ve aksiyon daireleri birlikte değişir.
 
 ### Bonus örnekler
-- **Silme onay metnini değiştir:** `person/[id].tsx` → `ConfirmDialog`'un `title` / `message` prop'ları.
-- **"Düzenle" butonunu sola al:** `person/[id].tsx` → `actionBar` içindeki iki `View`'in sırasını değiştirin.
-- **API zaman aşımını 5 saniye yap:** `personService.ts` → `timeout: 5000`.
+- **Silme onay metnini değiştir:** `person_detail_screen.dart` → `AlertDialog`'un `title` / `content`'i.
+- **"Düzenle" ve "Sil" butonlarının yerini değiştir:** `_buildActions` içindeki iki `Expanded`'ın sırasını değiştirin.
+- **API zaman aşımını 5 saniye yap:** `person_service.dart` → `Duration(seconds: 5)`.
 - **Yeni bir örnek kişi ekle:** `AppDbContext.cs` → `HasData` içine `Id = 11` ile yeni satır; ardından `persons.db` dosyalarını silip API'yi yeniden başlatın.
-- **Yeni bir alan ekle (ör. `City`):** `Person.cs`'e özellik → `persons.db` sil → `types/person.ts`'e alan → `validation.ts`'deki `PersonFormValues` otomatik genişler → `form.tsx`'te `EMPTY_FORM`, `setValues`, `payload` ve yeni `FormField` → `[id].tsx`'te yeni `InfoRow`.
+- **Yeni bir alan ekle (ör. `City`):** `Person.cs`'e özellik → `persons.db` sil → `person.dart`'ta alan + `fromJson`/`toJson` → formda yeni `TextEditingController` ve `TextFormField` → detayda yeni `InfoRow`.

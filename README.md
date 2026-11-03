@@ -1,11 +1,11 @@
 # Kişi Yönetim Sistemi
 
-Mobil Programlama dersi vize projesi. React Native (Expo) ile yazılmış bir mobil uygulama, ASP.NET Core Web API ile yazılmış bir REST servisine HTTP/JSON üzerinden bağlanır ve kişiler üzerinde **listeleme, detay görüntüleme, ekleme, güncelleme ve silme (CRUD)** işlemleri yapar. Veriler SQLite veritabanında kalıcı olarak saklanır.
+Mobil Programlama dersi vize projesi. **Flutter (Dart)** ile yazılmış bir mobil uygulama, **ASP.NET Core Web API** ile yazılmış bir REST servisine HTTP/JSON üzerinden bağlanır ve kişiler üzerinde **listeleme, detay görüntüleme, ekleme, güncelleme ve silme (CRUD)** işlemleri yapar. Veriler SQLite veritabanında kalıcı olarak saklanır.
 
 ```
-┌──────────────────────┐   HTTP + JSON (axios)   ┌──────────────────────────┐   EF Core   ┌──────────────┐
+┌──────────────────────┐   HTTP + JSON (http)    ┌──────────────────────────┐   EF Core   ┌──────────────┐
 │  mobile_app          │ ──────────────────────▶ │  backend_api             │ ──────────▶ │  persons.db  │
-│  React Native + Expo │ ◀────────────────────── │  ASP.NET Core Web API    │ ◀────────── │  (SQLite)    │
+│  Flutter (Dart)      │ ◀────────────────────── │  ASP.NET Core Web API    │ ◀────────── │  (SQLite)    │
 └──────────────────────┘                         └──────────────────────────┘             └──────────────┘
 ```
 
@@ -13,10 +13,10 @@ Mobil Programlama dersi vize projesi. React Native (Expo) ile yazılmış bir mo
 
 | Katman | Teknoloji |
 | --- | --- |
-| Mobil | React Native 0.88, Expo SDK 58, TypeScript |
-| Navigasyon | Expo Router (dosya tabanlı yönlendirme) |
-| HTTP istemcisi | Axios |
-| Yazı tipleri | Fraunces (başlık), Inter (gövde) — `@expo-google-fonts` |
+| Mobil | Flutter 3.47, Dart 3.13, Material 3 |
+| HTTP istemcisi | `http` paketi |
+| E-posta / telefon açma | `url_launcher` paketi |
+| Yazı tipleri | Fraunces (başlık), Inter (gövde) — uygulamaya gömülü, OFL lisanslı |
 | Backend | ASP.NET Core Web API (.NET 10, C#) |
 | Veritabanı | SQLite + Entity Framework Core 10 |
 | API dokümantasyonu | Swagger / OpenAPI (Swashbuckle) |
@@ -39,24 +39,22 @@ mobiluygulama/
 │   ├── appsettings.json         ← SQLite bağlantı cümlesi
 │   ├── PersonApi.csproj
 │   └── Program.cs               ← Uygulama başlangıcı, servis kayıtları
-└── mobile_app/                  ← React Native + Expo uygulaması
-    ├── app.json                 ← Expo yapılandırması
-    ├── eas.json                 ← APK derleme profili
-    ├── .env.example             ← API adresi örneği
-    └── src/
-        ├── app/                 ← Ekranlar (Expo Router)
-        │   ├── _layout.tsx      ← Stack navigasyon + font yükleme
-        │   ├── index.tsx        ← EKRAN 1: Kişi listesi
-        │   ├── person/[id].tsx  ← EKRAN 2: Kişi detayı
-        │   └── form.tsx         ← EKRAN 3: Ekleme / düzenleme formu
-        ├── components/          ← Tekrar kullanılan arayüz parçaları
-        ├── constants/
-        │   ├── config.ts        ← API adresi
-        │   └── theme.ts         ← Tasarım token'ları (renk, boşluk, yazı)
-        ├── services/
-        │   └── personService.ts ← Tüm API çağrıları (axios)
-        ├── types/person.ts      ← Person TypeScript tipi
-        └── utils/               ← Tarih biçimleme, doğrulama, bildirim
+└── mobile_app/                  ← Flutter uygulaması
+    ├── pubspec.yaml             ← Paketler ve yazı tipleri
+    ├── android/                 ← Android ayarları (AndroidManifest.xml: internet izni)
+    ├── assets/fonts/            ← Fraunces ve Inter yazı tipleri
+    └── lib/
+        ├── main.dart            ← Giriş noktası, tema, Türkçe dil
+        ├── config.dart          ← API adresi
+        ├── models/person.dart   ← Person modeli (fromJson / toJson)
+        ├── services/person_service.dart ← Tüm API çağrıları
+        ├── screens/
+        │   ├── person_list_screen.dart   ← EKRAN 1: Kişi listesi
+        │   ├── person_detail_screen.dart ← EKRAN 2: Kişi detayı
+        │   └── person_form_screen.dart   ← EKRAN 3: Ekleme / düzenleme formu
+        ├── theme/app_theme.dart ← Renkler, yazı stilleri, tema
+        ├── widgets/             ← Tekrar kullanılan arayüz parçaları
+        └── utils/               ← Tarih biçimleme, doğrulama
 ```
 
 ---
@@ -83,7 +81,7 @@ dotnet run            # API'yi http://0.0.0.0:5080 adresinde başlatır
 - Swagger arayüzü: **http://localhost:5080/swagger**
 - Kişi listesi (JSON): http://localhost:5080/api/persons
 
-> API `0.0.0.0` üzerinde dinler; yani hem bilgisayarın kendisinden (`localhost`) hem de aynı Wi-Fi ağındaki telefondan erişilebilir. Port `Properties/launchSettings.json` içindeki `applicationUrl` alanından değiştirilebilir.
+> API `0.0.0.0` üzerinde dinler; yani hem bilgisayarın kendisinden (`localhost`) hem de aynı ağdaki telefondan erişilebilir. Port `Properties/launchSettings.json` içindeki `applicationUrl` alanından değiştirilebilir.
 
 ### SQLite yapılandırması
 - Bağlantı cümlesi `backend_api/appsettings.json` dosyasındadır:
@@ -93,7 +91,6 @@ dotnet run            # API'yi http://0.0.0.0:5080 adresinde başlatır
 - API ilk çalıştığında `Program.cs` içindeki `EnsureCreatedAsync()` çağrısı `backend_api/persons.db` dosyasını oluşturur ve `AppDbContext.cs` içindeki **10 örnek kişiyi** ekler.
 - Veritabanı dosyası `.gitignore`'dadır; her bilgisayarda otomatik oluşur.
 - **Veritabanını sıfırlamak için:** API'yi durdurun, `persons.db*` dosyalarını silin, tekrar `dotnet run` yapın.
-- Veritabanını görsel incelemek için: [DB Browser for SQLite](https://sqlitebrowser.org/) veya VS Code "SQLite Viewer" eklentisi.
 
 ---
 
@@ -150,132 +147,109 @@ curl -X DELETE http://localhost:5080/api/persons/11
 ## 3. Mobil uygulama kurulumu
 
 ### Gereksinimler
-- Node.js 20+ (`node -v`)
-- Telefon için **Expo Go** uygulaması (Play Store / App Store) **veya** Android Studio emülatörü
+- [Flutter SDK](https://docs.flutter.dev/install) (stable, 3.47+) — `flutter` komutu PATH'te olmalı
+- Android Studio: Android SDK, **Android SDK Command-line Tools** ve **NDK 28.2.13676358** (SDK Manager → SDK Tools)
+- Windows'ta **Geliştirici Modu** açık olmalı (Ayarlar → Sistem → Geliştiriciler için). Flutter eklentileri bunu gerektirir.
+
+Kontrol:
+```bash
+flutter doctor        # "Flutter" ve "Android toolchain" satırları ✓ olmalı
+```
 
 ### Kurulum ve çalıştırma
 ```bash
 cd mobile_app
-npm install           # Bağımlılıkları kurar
-npx expo start        # Geliştirme sunucusunu başlatır (QR kod çıkar)
+flutter pub get       # Paketleri indirir
+flutter run           # Bağlı emülatörde / telefonda çalıştırır
 ```
-Terminalde:
-- `a` → Android emülatöründe açar
-- QR kodu Expo Go ile okutun → fiziksel telefonda açar
-- `w` → tarayıcıda açar (hızlı deneme için)
+Uygulama çalışırken terminalde:
+- `r` → **hot reload** (kod değişikliği anında yansır, ekran durumu korunur)
+- `R` → **hot restart** (uygulama baştan başlar)
+- `q` → çıkış
 
 Diğer komutlar:
 ```bash
-npm run typecheck     # TypeScript kontrolü (tsc --noEmit)
-npm run lint          # ESLint
-npx expo-doctor       # Expo yapılandırma kontrolü
+flutter analyze       # Statik kod analizi
+flutter devices       # Bağlı cihazları listeler
 ```
 
 ### API adresinin yapılandırılması
-Adres `src/constants/config.ts` dosyasında belirlenir:
+Adres `lib/config.dart` dosyasında belirlenir. Varsayılan **`http://10.0.2.2:5080`**'dir: Android emülatörü bilgisayarın `localhost`'una bu özel adresle ulaşır.
 
-| Öncelik | Kaynak | Ne zaman |
-| --- | --- | --- |
-| 1 | `.env` / `eas.json` → `EXPO_PUBLIC_API_URL` | APK derlemesi veya adresi elle sabitlemek istendiğinde |
-| 2 | Expo'nun bağlı olduğu bilgisayar IP'si (Metro adresi, port 5080 ile) | Expo Go ile çalışırken (emülatör **ve** fiziksel telefon) |
-| 3 | `http://10.0.2.2:5080` (Android) / `http://localhost:5080` (iOS, web) | Diğer durumlar |
+Farklı bir adres için `--dart-define` kullanılır (kod değiştirmeye gerek yok):
+```bash
+flutter run --dart-define=API_URL=http://192.168.1.20:5080
+```
 
-Expo Go ile çalışırken `.env` boş bırakılır: telefon da emülatör de Metro'ya bilgisayarın IP'siyle bağlandığı için backend'e de aynı IP ile ulaşılır ve ağ değişse bile ayar gerekmez.
+| Ortam | Komut |
+| --- | --- |
+| Android emülatörü | `flutter run` |
+| Fiziksel telefon (aynı Wi-Fi) | `flutter run --dart-define=API_URL=http://<bilgisayar-IP>:5080` |
+| Tailscale ile | `flutter run --dart-define=API_URL=http://<tailscale-IP>:5080` |
 
 ### Android emülatör bağlantısı
 1. Backend'i başlatın: `cd backend_api && dotnet run`
 2. Android Studio → Device Manager → bir emülatör başlatın.
-3. `cd mobile_app && npx expo start -c` → `a` tuşu.
-
-> **Android 17 (API 37):** Uygulamaların yerel ağa erişmesi için "Yerel ağ" izni gerekir. Expo Go'da bu izin kapalı gelir ve uygulama "Sunucuya ulaşılamadı" der. İzni vermek için:
-> ```powershell
-> adb shell pm grant host.exp.exponent android.permission.ACCESS_LOCAL_NETWORK
-> ```
-> (Fiziksel telefonda: Ayarlar → Uygulamalar → Expo Go → İzinler → Yerel ağ → İzin ver.)
+3. `cd mobile_app && flutter run`
 
 ### Fiziksel telefon bağlantısı
-1. Telefon ve bilgisayar **aynı Wi-Fi ağında** olmalıdır.
-2. `npx expo start -c` → QR kodu Expo Go ile okutun. Backend adresi otomatik belirlenir.
+1. Telefonda **Geliştirici seçenekleri → USB hata ayıklama**'yı açın, USB ile bağlayın. `flutter devices` telefonu göstermeli.
+2. Telefon ve bilgisayar **aynı Wi-Fi ağında** olmalıdır. Bilgisayarın IP'si: `ipconfig` → "IPv4 Address".
 3. Windows Güvenlik Duvarı 5080 portunu engelleyebilir. Yönetici PowerShell'de:
    ```powershell
    netsh advfirewall firewall add rule name="PersonApi 5080" dir=in action=allow protocol=TCP localport=5080
    ```
-4. Sorun olursa telefonun tarayıcısında `http://<bilgisayar-IP>:5080/api/persons` adresini açarak test edin (IP: `ipconfig` → "IPv4 Address").
+4. Telefonun tarayıcısında `http://<bilgisayar-IP>:5080/api/persons` açılıyorsa bağlantı hazırdır.
+5. `flutter run --dart-define=API_URL=http://<bilgisayar-IP>:5080`
 
-> `.env` değiştiğinde Expo sunucusunu `-c` ile yeniden başlatmak gerekir; `EXPO_PUBLIC_` değişkenleri derleme anında koda gömülür.
-> Kampüs/okul ağları cihazlar arası trafiği engelleyebilir. Bu durumda telefonun mobil erişim noktasına (hotspot) bilgisayarı bağlayın ve IP'yi yeniden kontrol edin.
+> Kampüs/okul ağları cihazlar arası trafiği engelleyebilir. Bu durumda bilgisayarı telefonun mobil erişim noktasına (hotspot) bağlayın ve IP'yi yeniden kontrol edin.
 
 ---
 
 ## 4. APK
 
-### Hazır APK (test paketi)
-- **İndirme / kurulum sayfası:** https://expo.dev/accounts/cemozs-team/projects/kisi-yonetim-sistemi/builds/7a367953-1758-42af-b58d-7e8a37ed7057
-  (Sayfayı telefonda açıp **Install** seçin. Android "bilinmeyen kaynaklardan yükleme" izni isteyebilir.)
-- Paket adı: `com.kisiyonetim.app` · Profil: `preview` (APK, dahili dağıtım)
+### APK oluşturma
+```bash
+cd mobile_app
+flutter build apk --release --dart-define=API_URL=http://<backend-adresi>:5080
+```
+Çıktı: `mobile_app/build/app/outputs/flutter-apk/app-release.apk`
 
-Bu APK backend'e **`http://100.64.164.79:5080`** adresinden bağlanır. Bu adres geliştiricinin bilgisayarının [Tailscale](https://tailscale.com) adresidir ve ağ değişse de aynı kalır. APK'nin çalışması için:
+Telefona kurmak için: dosyayı telefona kopyalayıp açın (Android "bilinmeyen kaynaklardan yükleme" izni isteyebilir) veya USB ile bağlıyken `flutter install`.
+
+> API adresi derleme anında APK'ye gömülür. Ağ/IP değişirse APK yeniden derlenmelidir.
+
+### Hazır APK hakkında
+Geliştiricinin APK'si backend'e **`http://100.64.164.79:5080`** adresinden bağlanır. Bu adres geliştiricinin bilgisayarının [Tailscale](https://tailscale.com) adresidir ve ağ değişse de aynı kalır. APK'nin çalışması için:
 1. Bilgisayarda backend çalışmalı: `cd backend_api && dotnet run`
 2. Bilgisayarda ve telefonda Tailscale açık olmalı, aynı hesapla giriş yapılmış olmalı.
 
-Başka bir bilgisayarda/ağda kullanmak için `eas.json` → `EXPO_PUBLIC_API_URL` değerini o bilgisayarın adresiyle değiştirip APK'yi yeniden derleyin (aşağıda).
-
-### APK oluşturma
-
-Android 9+ varsayılan olarak şifresiz `http://` trafiğini engeller. Yerel backend'e bağlanabilmek için `app.json` içinde `expo-build-properties` eklentisiyle `usesCleartextTraffic: true` ayarlanmıştır.
-
-### Yöntem A — EAS Build (bulutta, Android Studio gerekmez) — önerilen
-1. `mobile_app/eas.json` içindeki `EXPO_PUBLIC_API_URL` değerini sunum günü kullanılacak bilgisayarın IP'si ile güncelleyin.
-2. Ücretsiz bir Expo hesabı açın (https://expo.dev) ve komutları çalıştırın:
-   ```bash
-   cd mobile_app
-   npx eas-cli@latest login
-   npx eas-cli@latest build -p android --profile preview
-   ```
-3. Derleme bitince verilen bağlantıdan `.apk` dosyasını indirip telefona kurun.
-
-### Yöntem B — Yerel derleme (Android Studio + JDK 17 gerekir)
-```bash
-cd mobile_app
-npx expo prebuild -p android     # android/ klasörünü oluşturur
-cd android
-./gradlew assembleRelease        # Windows: gradlew.bat assembleRelease
-```
-APK: `mobile_app/android/app/build/outputs/apk/release/app-release.apk`
-
-> IP adresi APK'nin içine gömüldüğü için ağ değişirse APK yeniden derlenmelidir. Sunum günü en güvenlisi Expo Go ile `npx expo start` kullanmak ve APK'yi yedek olarak bulundurmaktır.
+Başka bir bilgisayarda/ağda kullanmak için APK'yi yukarıdaki komutla o bilgisayarın adresiyle yeniden derleyin.
 
 ---
 
 ## 5. Sunum günü kontrol listesi
 1. `cd backend_api && dotnet run` → http://localhost:5080/swagger açılıyor mu?
-2. Telefon/emülatör tarayıcısından `/api/persons` açılıyor mu?
-3. `cd mobile_app && npx expo start -c` → uygulama liste ekranını gösteriyor mu?
+2. Emülatör açık mı? `flutter devices` listede gösteriyor mu?
+3. `cd mobile_app && flutter run` → uygulama liste ekranını gösteriyor mu?
 4. Ekle → Detay → Düzenle → Sil akışını bir kez deneyin.
+5. Bir satırı değiştirip `r` ile hot reload'un çalıştığını görün.
 
 ---
 
-## 6. GitHub'a yükleme
-```bash
-cd mobiluygulama                     # proje kök klasörü
-git init
-git add .
-git commit -m "Kişi Yönetim Sistemi: ASP.NET Core API + React Native mobil uygulama"
-git branch -M main
-# GitHub'da boş ve açık (public) bir repo oluşturun, ardından:
-git remote add origin https://github.com/<kullanici-adi>/kisi-yonetim-sistemi.git
-git push -u origin main
-```
-`.gitignore` sayesinde `node_modules`, `bin`, `obj`, `persons.db` ve `.env` yüklenmez. Repo kökünde `mobile_app/` ve `backend_api/` iki ayrı klasör olarak görünür.
-
----
-
-## 7. Sorun giderme
+## 6. Sorun giderme
 
 | Belirti | Çözüm |
 | --- | --- |
-| Uygulamada "Bağlantı kurulamadı" | Backend çalışıyor mu? Hata mesajındaki adres doğru mu? `.env` içinde eski bir `EXPO_PUBLIC_API_URL` satırı açık kalmış mı? |
-| Emülatör bağlanamıyor | `.env` dosyasında `localhost` yazmayın; Android 17'de Expo Go'ya "Yerel ağ" izni verin (bkz. Android emülatör bağlantısı). |
-| Telefon bağlanamıyor | Aynı Wi-Fi, güvenlik duvarı kuralı, `npx expo start -c` |
+| Uygulamada "Bağlantı kurulamadı" | Backend çalışıyor mu? Hata mesajındaki adres doğru mu? Telefonda `--dart-define=API_URL=...` verildi mi? |
+| Emülatör bağlanamıyor | Adres `10.0.2.2` olmalı; `localhost` emülatörün kendisidir. |
+| Telefon bağlanamıyor | Aynı Wi-Fi, güvenlik duvarı kuralı, telefonun tarayıcısından `/api/persons` testi |
+| `flutter` bulunamadı | Flutter `bin` klasörünü PATH'e ekleyin, terminali yeniden açın. |
+| Derlemede "NDK did not install" | Android Studio → SDK Manager → SDK Tools → Show Package Details → NDK 28.2.13676358 |
+| Derlemede "symlink support" hatası | Windows Geliştirici Modu'nu açın. |
 | `dotnet` bulunamadı | .NET 10 SDK kurun, terminali yeniden açın. |
 | Port 5080 kullanımda | `launchSettings.json` içinde portu değiştirin, mobilde de adresi güncelleyin. |
+
+---
+
+> Projenin ilk sürümü React Native (Expo) ile yazılmıştı; o sürüm `react-native` dalında duruyor.

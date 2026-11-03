@@ -1,0 +1,45 @@
+name: kisi_yonetim
+description: "Kişi Yönetim Sistemi — Flutter istemcisi"
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.7
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  http: ^1.6.0
+  url_launcher: ^6.3.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  # Uygulamaya gömülü yazı tipleri: internet olmadan da aynı görünür.
+  # Fraunces (serif) başlıklarda, Inter (sans-serif) metinlerde kullanılır.
+  fonts:
+    - family: Fraunces
+      fonts:
+        - asset: assets/fonts/Fraunces_400Regular.ttf
+        - asset: assets/fonts/Fraunces_400Regular_Italic.ttf
+          style: italic
+        - asset: assets/fonts/Fraunces_500Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Fraunces_600SemiBold.ttf
+          weight: 600
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter_400Regular.ttf
+        - asset: assets/fonts/Inter_500Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter_600SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter_700Bold.ttf
+          weight: 700

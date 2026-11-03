@@ -14,13 +14,8 @@ backend_api/.vs/
 *.db-shm
 *.db-wal
 
-# ---------- mobile_app (Expo / React Native) ----------
-mobile_app/node_modules/
-mobile_app/.expo/
-mobile_app/dist/
-mobile_app/web-build/
-mobile_app/android/
-mobile_app/ios/
-mobile_app/.env
-mobile_app/*.apk
-mobile_app/*.aab
+# ---------- mobile_app (Flutter) ----------
+# Ayrıntılı kurallar mobile_app/.gitignore ve mobile_app/android/.gitignore içindedir.
+# Derleme çıktıları (build/, .dart_tool/) her bilgisayarda yeniden oluşur.
+*.apk
+*.aab
